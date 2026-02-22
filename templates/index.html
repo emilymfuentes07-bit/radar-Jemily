@@ -3,56 +3,132 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Radar Climático - Jemily</title>
+    <title>Radar Jemily | Profesional</title>
     <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 </head>
 <body>
-    <div class="container">
-        <h1>📡 Radar Climático</h1>
-        <div class="search-box">
-            <input type="text" id="ciudad" placeholder="Escribe una ciudad (ej: Guatemala)...">
-            <button onclick="buscar()">Buscar</button>
-        </div>
 
-        <div id="resultado">
-            </div>
+<div class="container">
+    <div class="language-picker">
+        <button onclick="cambiarIdioma('es')">🇲🇽 ES</button>
+        <button onclick="cambiarIdioma('en')">🇺🇸 EN</button>
     </div>
 
-    <script>
-        async function buscar() {
-            const ciudad = document.getElementById('ciudad').value;
-            const res = await fetch(`/city/${ciudad}`);
-            const data = await res.json();
+    <h1 id="txt-title" class="main-title">📡 Radar Jemily</h1>
+    <p id="txt-subtitle" class="subtitle">Explora el mundo con Jeremy & Emily</p>
 
-            if (data.error) {
-                document.getElementById('resultado').innerHTML = `<p style="color:red;">${data.error}</p>`;
-                return;
-            }
+    <div class="search-section">
+        <input type="text" id="cityInput" placeholder="Escribe una ciudad...">
+        <button id="btn-city" onclick="buscarCiudad()">Explorar</button>
+    </div>
 
-            let html = `
-                <div class="card">
-                    <h2>${data.city}, ${data.country} <img src="${data.flag}" class="flag"></h2>
-                    <p class="location-info">📍 Lat: ${data.latitude} | Lon: ${data.longitude}</p>
-                    <p class="location-info">👥 Población: ${data.population.toLocaleString()}</p>
-                    <hr>
-                    <h3 style="margin: 10px 0;">${data.weather_desc} - ${data.temperature}°C</h3>
-                    
-                    <div class="weather-grid">
-                        <div class="weather-item"><strong>Sensación</strong> <span>🌡️ ${data.feels_like}°C</span></div>
-                        <div class="weather-item"><strong>Humedad</strong> <span>💧 ${data.humidity}%</span></div>
-                        <div class="weather-item"><strong>Viento</strong> <span>🌬️ ${data.wind_speed} m/s</span></div>
-                        <div class="weather-item"><strong>Presión</strong> <span>📉 ${data.pressure} hPa</span></div>
-                        <div class="weather-item"><strong>Visibilidad</strong> <span>👁️ ${data.visibility} km</span></div>
-                        <div class="weather-item"><strong>Nubosidad</strong> <span>☁️ ${data.clouds}%</span></div>
-                        <div class="weather-item"><strong>Máxima</strong> <span>📈 ${data.temp_max}°C</span></div>
-                        <div class="weather-item"><strong>Mínima</strong> <span>📉 ${data.temp_min}°C</span></div>
-                        <div class="weather-item"><strong>Amanecer</strong> <span>🌅 ${data.sunrise}</span></div>
-                        <div class="weather-item"><strong>Atardecer</strong> <span>🌇 ${data.sunset}</span></div>
-                    </div>
-                </div>
-            `;
-            document.getElementById('resultado').innerHTML = html;
-        }
-    </script>
+    <div id="resultado" class="card hidden">
+        <div class="header">
+            <img id="flag" width="50">
+            <h2 id="location"></h2>
+            <div id="weatherInfo">
+                <span id="tempMain"></span>
+                <p id="weatherDesc"></p>
+            </div>
+        </div>
+        <div id="map"></div>
+        <div class="grid" id="dataGrid"></div>
+    </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+let map;
+const traducciones = {
+    'es': { 
+        'title': '📡 Radar Jemily', 
+        'subtitle': 'Explora el mundo con Jeremy & Emily', 
+        'btnCity': 'Explorar', 
+        'label': {
+            'region': '🌎 Región', 'population': '👥 Población', 'currency': '💰 Moneda', 
+            'latitude': '📍 Latitud', 'longitude': '📍 Longitud', 'feels_like': '🌡️ Sensación',
+            'humidity': '💧 Humedad', 'pressure': '📉 Presión', 'wind_speed': '🌬️ Viento',
+            'clouds': '☁️ Nubes', 'visibility': '👁️ Visibilidad', 'temp_max': '📈 Máxima',
+            'temp_min': '📉 Mínima', 'sunrise': '🌅 Amanecer', 'sunset': '🌇 Atardecer'
+        } 
+    },
+    'en': { 
+        'title': '📡 Radar Jemily', 
+        'subtitle': 'Explore the world with Jeremy & Emily', 
+        'btnCity': 'Explore', 
+        'label': {
+            'region': '🌎 Region', 'population': '👥 Population', 'currency': '💰 Currency', 
+            'latitude': '📍 Latitude', 'longitude': '📍 Longitude', 'feels_like': '🌡️ Feels Like',
+            'humidity': '💧 Humidity', 'pressure': '📉 Pressure', 'wind_speed': '🌬️ Wind',
+            'clouds': '☁️ Clouds', 'visibility': '👁️ Visibility', 'temp_max': '📈 Max Temp',
+            'temp_min': '📉 Min Temp', 'sunrise': '🌅 Sunrise', 'sunset': '🌇 Sunset'
+        } 
+    }
+};
+
+function cambiarIdioma(lang) {
+    localStorage.setItem("idioma", lang);
+    const t = traducciones[lang];
+    document.getElementById('txt-title').innerText = t.title;
+    document.getElementById('txt-subtitle').innerText = t.subtitle;
+    document.getElementById('btn-city').innerText = t.btnCity;
+    document.getElementById('cityInput').placeholder = lang === 'es' ? 'Escribe una ciudad...' : 'Type a city...';
+}
+
+async function buscarCiudad() {
+    const ciudad = document.getElementById("cityInput").value;
+    if(!ciudad) return;
+    const res = await fetch(`/city/${ciudad}`);
+    const data = await res.json();
+    if(data.detail) return alert("Ciudad no encontrada");
+    mostrarResultado(data);
+}
+
+function mostrarResultado(data) {
+    const lang = localStorage.getItem("idioma") || 'es';
+    document.getElementById("resultado").classList.remove("hidden");
+
+    // Fondo Dinámico Unsplash (Eliminamos lógica de audio)
+    const query = `${data.city} landscape`;
+    document.body.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('https://source.unsplash.com/1600x900/?${query}')`;
+
+    document.getElementById("flag").src = data.flag;
+    document.getElementById("location").innerText = `${data.city}, ${data.country}`;
+    document.getElementById("tempMain").innerText = `${data.temperature}°C`;
+    document.getElementById("weatherDesc").innerText = data.weather_desc;
+
+    // Mapa
+    if (map) map.remove();
+    map = L.map('map').setView([data.latitude, data.longitude], 11);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png').addTo(map);
+    L.marker([data.latitude, data.longitude]).addTo(map).bindPopup(data.city).openPopup();
+
+    // Grid de datos
+    const grid = document.getElementById("dataGrid");
+    grid.innerHTML = "";
+    
+    // Lista de claves a mostrar (10 datos climáticos + población, región, etc)
+    const items = [
+        'region', 'population', 'currency', 'latitude', 'longitude',
+        'feels_like', 'humidity', 'wind_speed', 'pressure', 'clouds', 
+        'visibility', 'temp_max', 'temp_min', 'sunrise', 'sunset'
+    ];
+    
+    items.forEach(key => {
+        let val = data[key];
+        const label = traducciones[lang].label[key];
+        
+        if (key === 'population') val = Number(val).toLocaleString(lang === 'es' ? 'es-ES' : 'en-US');
+        if (key === 'visibility') val += " km";
+        if (key === 'humidity' || key === 'clouds') val += "%";
+        if (key === 'feels_like' || key === 'temp_max' || key === 'temp_min') val += "°C";
+        if (key === 'wind_speed') val += " m/s";
+        if (key === 'pressure') val += " hPa";
+
+        grid.innerHTML += `<div class="item"><strong>${label}</strong><br>${val}</div>`;
+    });
+}
+</script>
 </body>
 </html>
